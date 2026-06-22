@@ -1,0 +1,11 @@
+{
+  "name": "pi-desktop-notify",
+  "version": "1.0.0",
+  "description": "Desktop notification extension for pi coding agent — WPF popup when pi finishes output",
+  "keywords": ["pi-package", "pi-extension", "notification"],
+  "author": "",
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./extensions"]
+  }
+}
