@@ -45,16 +45,16 @@ let taskStartTime = 0;
 
 // ── 可配置项 ────────────────────────────────────────────────────────────────
 const CONFIG_PATH = join(getAgentDir(), "notify.json");
-type Config = { timeout: number; opacity: number; messageMode: "fixed" | "summary"; lang: "zh" | "en" | "ja" | "ko" };
+type Config = { timeout: number; opacity: number; messageMode: "fixed" | "response"; lang: "zh" | "en" | "ja" | "ko" };
 
 function loadConfig(): Config {
   try {
     if (existsSync(CONFIG_PATH)) {
       const saved = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
-      return { timeout: saved.timeout ?? 15, opacity: saved.opacity ?? 0.80, messageMode: saved.messageMode ?? "fixed", lang: saved.lang ?? "zh" };
+      return { timeout: saved.timeout ?? 15, opacity: saved.opacity ?? 1.0, messageMode: saved.messageMode ?? "response", lang: saved.lang ?? "en" };
     }
   } catch { /* */ }
-  return { timeout: 15, opacity: 0.80, messageMode: "fixed", lang: "zh" };
+  return { timeout: 15, opacity: 1.0, messageMode: "response", lang: "en" };
 }
 
 function saveConfig(c: Config): void {
@@ -641,7 +641,7 @@ export default function (pi: ExtensionAPI) {
         return ["0.5", "0.6", "0.7", "0.8", "0.9", "1.0"].filter((s) => s.startsWith(val)).map((s) => ({ value: `${sub} ${s}`, label: s }));
       }
       if (sub === "message") {
-        return ["fixed", "summary"].filter((s) => s.startsWith(val)).map((s) => ({ value: `${sub} ${s}`, label: s === "summary" ? "AI summary (20 chars)" : "Fixed text" }));
+        return ["fixed", "response"].filter((s) => s.startsWith(val)).map((s) => ({ value: `${sub} ${s}`, label: s === "response" ? "AI reply (20 chars)" : "Fixed text" }));
       }
       if (sub === "lang") {
         return ["zh", "en", "ja", "ko"].filter((s) => s.startsWith(val)).map((s) => ({ value: `${sub} ${s}`, label: s }));
@@ -681,12 +681,12 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      // /notify message fixed|summary
+      // /notify message fixed|response
       if (sub === "message") {
-        if (val === "fixed" || val === "summary") {
+        if (val === "fixed" || val === "response") {
           config.messageMode = val; saveConfig(config);
           ctx.ui.notify(`Message=${val}`, "info");
-        } else { ctx.ui.notify("Usage: /notify message fixed|summary", "warning"); }
+        } else { ctx.ui.notify("Usage: /notify message fixed|response", "warning"); }
         return;
       }
 
@@ -756,7 +756,7 @@ export default function (pi: ExtensionAPI) {
       const inForeground = await isTerminalForegroundAsync();
       log(`foreground: ${inForeground}`);
       if (inForeground) return;
-      const body = config.messageMode === "summary"
+      const body = config.messageMode === "response"
         ? extractSummary(_event) ?? completionMsg()
         : completionMsg();
       log(`notification: "${title}" body="${body}"`);
