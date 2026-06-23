@@ -1,6 +1,6 @@
 {
   "name": "pi-win-notify",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "module",
   "description": "A Windows notification tool for pi — fast focus, response preview, elapsed time, mute, multi-language",
   "keywords": [

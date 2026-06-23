@@ -241,11 +241,12 @@ function Show-Notify($data) {
   $win.FindName('MuteBtn').Add_Click({ $popup.IsOpen = $true })
 
   $cursor = [System.Windows.Forms.Cursor]::Position
-  $wa = [System.Windows.Forms.Screen]::FromPoint($cursor).WorkingArea
+  $waW = [System.Windows.SystemParameters]::WorkArea.Width
+  $waH = [System.Windows.SystemParameters]::WorkArea.Height
   $count = inc-stack
   $offset = ($count - 1) * 128
-  $win.Left = $wa.Right - $win.Width - 20
-  $win.Top = $wa.Bottom - $win.Height - 10 - $offset
+  $win.Left = $waW - $win.Width - 20
+  $win.Top = $waH - $win.Height - 10 - $offset
   l "[ps-stack] count=$count offset=$offset"
 
   $timer = New-Object System.Windows.Threading.DispatcherTimer
