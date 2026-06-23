@@ -14,7 +14,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ryanchan720/pi-desktop-notify.git"
+    "url": "git+https://github.com/ryanchan720/pi-desktop-notify.git"
   },
   "pi": {
     "extensions": [
