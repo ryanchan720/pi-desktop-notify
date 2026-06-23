@@ -1,11 +1,11 @@
-# pi-desktop-notify
+# pi-win-notify
 
-Desktop notification for [pi coding agent](https://pi.dev). Pops up a WPF notification when pi finishes output — so you don't miss it after switching to another app.
+WPF desktop notification for [pi coding agent](https://pi.dev). Pops up a rich popup when pi finishes output — so you don't miss it after switching to another app.
 
 ## Install
 
 ```bash
-pi install pi-desktop-notify
+pi install pi-win-notify
 ```
 
 Or from GitHub:
