@@ -100,10 +100,10 @@ const config = loadConfig();
 
 // ── i18n ────────────────────────────────────────────────────────────────────
 const i18n: Record<string, Record<string, string>> = {
-  zh: { dismissBtn: " 知 道 了 ", continueBtn: " 继 续 ", completion: "任务完成", switchBack: "可以切回来了", enabled: "通知已开启 🔔", disabled: "通知已关闭 🔕", configTitle: "通知配置", timeoutLabel: "超时", opacityLabel: "不透明度", modeLabel: "模式", langLabel: "语言", statusLabel: "状态", on: "开", off: "关", mute3: "3 分钟", mute30: "30 分钟", mute60: "1 小时", muteOff: "关闭勿扰" },
-  en: { dismissBtn: " Dismiss ", continueBtn: "Continue", completion: "Task complete", switchBack: "Switch back", enabled: "Notify ON 🔔", disabled: "Notify OFF 🔕", configTitle: "Notify Config", timeoutLabel: "Timeout", opacityLabel: "Opacity", modeLabel: "Mode", langLabel: "Language", statusLabel: "Status", on: "ON", off: "OFF", mute3: "3 min", mute30: "30 min", mute60: "1 hour", muteOff: "Turn off" },
-  ja: { dismissBtn: " 閉じる ", continueBtn: " 続 行 ", completion: "完了", switchBack: "戻れます", enabled: "通知ON 🔔", disabled: "通知OFF 🔕", configTitle: "通知設定", timeoutLabel: "タイムアウト", opacityLabel: "不透明度", modeLabel: "モード", langLabel: "言語", statusLabel: "状態", on: "ON", off: "OFF", mute3: "3 分", mute30: "30 分", mute60: "1 時間", muteOff: "オフ" },
-  ko: { dismissBtn: "  닫 기  ", continueBtn: " 계 속 ", completion: "완료", switchBack: "돌아가기", enabled: "알림 ON 🔔", disabled: "알림 OFF 🔕", configTitle: "알림 설정", timeoutLabel: "시간제한", opacityLabel: "불투명도", modeLabel: "모드", langLabel: "언어", statusLabel: "상태", on: "ON", off: "OFF", mute3: "3 분", mute30: "30 분", mute60: "1 시간", muteOff: "끄기" },
+  zh: { dismissBtn: " 知 道 了 ", continueBtn: " 继 续 ", completion: "任务完成", switchBack: "可以切回来了", enabled: "通知已开启 🔔", disabled: "通知已关闭 🔕", configTitle: "通知配置", timeoutLabel: "超时", opacityLabel: "不透明度", modeLabel: "模式", langLabel: "语言", statusLabel: "状态", on: "开", off: "关", mute3: "3 分钟", mute30: "30 分钟", mute60: "1 小时", muteOff: "关闭勿扰", muteRemaining: "勿扰剩余{0}分" },
+  en: { dismissBtn: " Dismiss ", continueBtn: "Continue", completion: "Task complete", switchBack: "Switch back", enabled: "Notify ON 🔔", disabled: "Notify OFF 🔕", configTitle: "Notify Config", timeoutLabel: "Timeout", opacityLabel: "Opacity", modeLabel: "Mode", langLabel: "Language", statusLabel: "Status", on: "ON", off: "OFF", mute3: "3 min", mute30: "30 min", mute60: "1 hour", muteOff: "Turn off", muteRemaining: "Muted {0}m left" },
+  ja: { dismissBtn: " 閉じる ", continueBtn: " 続 行 ", completion: "完了", switchBack: "戻れます", enabled: "通知ON 🔔", disabled: "通知OFF 🔕", configTitle: "通知設定", timeoutLabel: "タイムアウト", opacityLabel: "不透明度", modeLabel: "モード", langLabel: "言語", statusLabel: "状態", on: "ON", off: "OFF", mute3: "3 分", mute30: "30 分", mute60: "1 時間", muteOff: "オフ", muteRemaining: "通知停止 残り{0}分" },
+  ko: { dismissBtn: "  닫 기  ", continueBtn: " 계 속 ", completion: "완료", switchBack: "돌아가기", enabled: "알림 ON 🔔", disabled: "알림 OFF 🔕", configTitle: "알림 설정", timeoutLabel: "시간제한", opacityLabel: "불투명도", modeLabel: "모드", langLabel: "언어", statusLabel: "상태", on: "ON", off: "OFF", mute3: "3 분", mute30: "30 분", mute60: "1 시간", muteOff: "끄기", muteRemaining: "방해금지 {0}분 남음" },
 };
 function t(key: string): string { return i18n[config.lang]?.[key] ?? i18n.zh[key] ?? key; }
 function completionMsg(): string { return `${t("completion")}，${t("switchBack")} 🎉`; }
@@ -235,7 +235,7 @@ function spawnHost(): void {
     if (code !== 0 && code !== null) {
       psHostCrashCount++;
       psHostLastError = `exit code ${code}`;
-      if (piApi) {
+      if (piApi?.ui) {
         piApi.ui.notify(`桌面通知服务异常 (${psHostLastError})，下次弹窗时自动恢复`, "warning");
       }
     }
@@ -489,11 +489,20 @@ export default function (pi: ExtensionAPI) {
 
       // /notify status
       if (sub === "status") {
-        const hostStatus = psHostReady ? "🟢" : psHost ? "🟡" : "🔴";
-        const crashInfo = psHostCrashCount > 0 ? ` 重启${psHostCrashCount}次` : "";
-        const lastErr = psHostLastError ? ` (${psHostLastError})` : "";
+        // 同步检查勿扰过期
+        if (config.muteUntil && Date.now() > config.muteUntil) {
+          enabled = true;
+          saveMuteUntil(undefined);
+          log("mute expired (checked on status)");
+        }
+        const daemonStatus = psHostReady ? "Daemon OK" : "Daemon Down";
+        let muteInfo = "";
+        if (!enabled && config.muteUntil && config.muteUntil > Date.now()) {
+          const remaining = Math.round((config.muteUntil - Date.now()) / 60000);
+          muteInfo = " " + t("muteRemaining").replace("{0}", remaining.toString());
+        }
         ctx.ui.notify(
-          `状态${hostStatus}${crashInfo}${lastErr}  |  ${t("timeoutLabel")}=${config.timeout}s ${t("opacityLabel")}=${config.opacity} ${t("modeLabel")}=${config.messageMode} ${t("langLabel")}=${config.lang} ${enabled ? t("on") : t("off")}`,
+          `${enabled ? t("enabled") : t("disabled")} | Timeout=${config.timeout}s Opacity=${config.opacity} Mode=${config.messageMode} Language=${config.lang} ${daemonStatus}${muteInfo}`,
           psHostReady ? "info" : "warning",
         );
         return;
@@ -527,7 +536,6 @@ export default function (pi: ExtensionAPI) {
       enabled = true;
       saveMuteUntil(undefined);
       log("mute expired (checked on agent_end)");
-      if (piApi) piApi.ui.notify("通知已恢复 🔔", "info");
     }
 
     log(`agent_end: enabled=${enabled} compacting=${isCompacting}`);
