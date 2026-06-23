@@ -1,6 +1,6 @@
 # pi-win-notify
 
-A Windows notification tool for [pi](https://pi.dev) — fast focus, response preview, elapsed time, mute, multi-language. Pops up a dark popup when pi finishes, so you never miss a completed task. Skips automatically when the terminal is focused. Mute with one click, click again to switch back.
+A Windows notification tool for [pi](https://pi.dev) — fast focus, response preview, elapsed time, mute, multi-language. Pops up a dark popup when pi finishes, so you never miss a completed task. Skips automatically when the terminal is focused.
 
 > 中文说明见 [README.zh.md](./README.zh.md)
 
