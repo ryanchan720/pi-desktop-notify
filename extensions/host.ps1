@@ -231,7 +231,7 @@ function Show-Notify($data) {
     $btn.Add_Click({
       $popup.IsOpen = $false
       $win.Close()
-      Write-Output ("MUTE:" + $this.Tag)
+      [Console]::WriteLine("MUTE:" + $this.Tag)
     }.GetNewClosure())
     $btn.Add_MouseEnter({ $this.Background = "#444" })
     $btn.Add_MouseLeave({ $this.Background = "Transparent" })
