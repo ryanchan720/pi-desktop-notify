@@ -1,16 +1,16 @@
 /**
  * Unit tests for desktop-notify extension.
  *
- * Run: node --import tsx C:/Users/52791/.pi/agent/extensions/desktop-notify-tests/tests.ts
+ * Run: node --experimental-strip-types tests/tests.ts
  *
  * Tests core logic without requiring pi runtime:
- *   - content extraction
- *   - title generation
- *   - abort/error detection
+ *   - content extraction (extractText, extractSummary)
+ *   - title generation (extractPromptTitle, 25-char truncation)
+ *   - abort/error detection (shouldSkipNotification, willRetry)
  *   - state machine (agent_start/end, compaction)
  */
 
-import { describe, it, before, after } from "node:test";
+import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -40,12 +40,29 @@ function extractPromptTitle(entries: Record<string, unknown>[]): string {
       const text = extractText(content);
       if (text) {
         const cleaned = text.replace(/\s+/g, " ").trim();
-        return cleaned.length > 10 ? cleaned.slice(0, 10) + "…" : cleaned;
+        return cleaned.length > 25 ? cleaned.slice(0, 25) + "…" : cleaned;
       }
       break;
     }
   }
   return "pi";
+}
+
+function extractSummary(event: { messages?: unknown[] }): string | null {
+  try {
+    const msgs = event.messages as Array<{ role?: string; content?: unknown }>;
+    if (!msgs) return null;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === "assistant") {
+        const text = extractText(msgs[i].content);
+        if (text) {
+          const cleaned = text.replace(/\s+/g, " ").trim();
+          return cleaned.length > 50 ? cleaned.slice(0, 50) + "…" : cleaned;
+        }
+      }
+    }
+  } catch { /* */ }
+  return null;
 }
 
 function getLastAssistantMessage(event: { messages?: unknown[] }): { stopReason?: string; errorMessage?: string } | null {
@@ -59,13 +76,24 @@ function getLastAssistantMessage(event: { messages?: unknown[] }): { stopReason?
   return null;
 }
 
+const RETRY_PATTERN = /overloaded|provider.?returned.?error|rate.?limit|too many requests|429|500|502|503|504|service.?unavailable|server.?error|internal.?error|network.?error|connection.?error|connection.?refused|connection.?lost|websocket.?closed|websocket.?error|other side closed|fetch failed|upstream.?connect|reset before headers|socket hang up|ended without|stream ended before message_stop|http2 request did not get a response|timed? out|timeout|terminated|retry delay/i;
+
+function willRetry(msg: { stopReason?: string; errorMessage?: string }): boolean {
+  if (msg.stopReason !== "error" || !msg.errorMessage) return false;
+  return RETRY_PATTERN.test(msg.errorMessage);
+}
+
 function shouldSkipNotification(
   msg: { stopReason?: string; errorMessage?: string } | null,
   isCompacting: boolean,
 ): boolean {
   if (isCompacting) return true;
   if (!msg) return false;
-  return msg.stopReason === "error" || msg.stopReason === "aborted";
+  if (msg.stopReason === "aborted") return true;
+  if (msg.stopReason === "error") {
+    return !willRetry(msg); // retry-able errors are NOT skipped (they trigger 10s delay)
+  }
+  return false;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -86,7 +114,6 @@ class NotificationStateMachine {
   notifications: string[] = [];
   private _timerFn: (() => void) | null = null;
 
-  // Replace setTimeout for testing
   setTimer(fn: () => void, _ms: number) {
     this.timerId++;
     this._timerFn = fn;
@@ -128,11 +155,12 @@ class NotificationStateMachine {
         }
         if (this.state === "waiting") this.clearTimer(this.timerId);
         this.state = "waiting";
+        const delay = (msg && willRetry(msg)) ? 10000 : 2000;
         this.setTimer(() => {
           if (this.isCompacting) return;
           this.state = "notified";
           this.notifications.push("fired");
-        }, 10000);
+        }, delay);
         break;
       }
     }
@@ -174,10 +202,10 @@ describe("extractText", () => {
 });
 
 describe("extractPromptTitle", () => {
-  it("flat entry with role=user", () => {
+  it("short prompt returns as-is", () => {
     const entries = [{ role: "user", content: "重构 user service" }];
-    // 15 chars → truncates to 10 + …
-    assert.equal(extractPromptTitle(entries), "重构 user se…");
+    // 15 chars → under 25, no truncation
+    assert.equal(extractPromptTitle(entries), "重构 user service");
   });
 
   it("nested entry with message.role=user", () => {
@@ -187,10 +215,15 @@ describe("extractPromptTitle", () => {
     assert.equal(extractPromptTitle(entries), "say done");
   });
 
-  it("truncates to 10 chars + …", () => {
-    const entries = [{ role: "user", content: "帮我重构整个用户认证模块的代码" }];
-    // 15 chars → 10 + …
-    assert.equal(extractPromptTitle(entries), "帮我重构整个用户认证…");
+  it("truncates to 25 chars + …", () => {
+    const entries = [{ role: "user", content: "帮我重构整个用户认证模块的代码包括登录注册和权限管理" }];
+    // 28 chars → 25 + …
+    assert.equal(extractPromptTitle(entries), "帮我重构整个用户认证模块的代码包括登录注册和权限管…");
+  });
+
+  it("exactly 25 chars returns as-is", () => {
+    const entries = [{ role: "user", content: "1234567890123456789012345" }]; // 25 chars
+    assert.equal(extractPromptTitle(entries), "1234567890123456789012345");
   });
 
   it("falls back to 'pi' when no user message", () => {
@@ -209,8 +242,53 @@ describe("extractPromptTitle", () => {
 
   it("collapses whitespace", () => {
     const entries = [{ role: "user", content: "  hello   world  " }];
-    // 11 chars after collapse → 10 + …
-    assert.equal(extractPromptTitle(entries), "hello worl…");
+    assert.equal(extractPromptTitle(entries), "hello world");
+  });
+});
+
+describe("extractSummary", () => {
+  it("extracts short assistant reply as-is", () => {
+    const summary = extractSummary({
+      messages: [
+        { role: "user", content: "hi" },
+        { role: "assistant", content: "hello" },
+      ],
+    });
+    assert.equal(summary, "hello");
+  });
+
+  it("truncates to 50 chars + …", () => {
+    const summary = extractSummary({
+      messages: [
+        { role: "assistant", content: "一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六七八九十一二三四五六" },
+      ],
+    });
+    assert.equal(summary!.length, 51); // 50 + "…"
+    assert.ok(summary!.endsWith("…"));
+  });
+
+  it("finds last assistant message", () => {
+    const summary = extractSummary({
+      messages: [
+        { role: "assistant", content: "first reply" },
+        { role: "assistant", content: "second reply" },
+      ],
+    });
+    assert.equal(summary, "second reply");
+  });
+
+  it("returns null when no assistant message", () => {
+    assert.equal(extractSummary({ messages: [{ role: "user" }] }), null);
+    assert.equal(extractSummary({}), null);
+  });
+
+  it("handles content arrays", () => {
+    const summary = extractSummary({
+      messages: [
+        { role: "assistant", content: [{ type: "text", text: "array reply" }] },
+      ],
+    });
+    assert.equal(summary, "array reply");
   });
 });
 
@@ -251,13 +329,47 @@ describe("getLastAssistantMessage", () => {
   });
 });
 
-describe("shouldSkipNotification", () => {
-  it("skips error stopReason", () => {
-    assert.equal(shouldSkipNotification({ stopReason: "error" }, false), true);
+describe("willRetry", () => {
+  it("retry-able: timeout", () => {
+    assert.equal(willRetry({ stopReason: "error", errorMessage: "request timed out" }), true);
   });
 
+  it("retry-able: rate limit", () => {
+    assert.equal(willRetry({ stopReason: "error", errorMessage: "rate limit exceeded" }), true);
+  });
+
+  it("retry-able: connection error", () => {
+    assert.equal(willRetry({ stopReason: "error", errorMessage: "connection refused" }), true);
+  });
+
+  it("retry-able: 502", () => {
+    assert.equal(willRetry({ stopReason: "error", errorMessage: "502 Bad Gateway" }), true);
+  });
+
+  it("not retry-able: unknown error", () => {
+    assert.equal(willRetry({ stopReason: "error", errorMessage: "something went wrong" }), false);
+  });
+
+  it("not retry-able: no errorMessage", () => {
+    assert.equal(willRetry({ stopReason: "error" }), false);
+  });
+
+  it("not retry-able: normal stop", () => {
+    assert.equal(willRetry({ stopReason: "stop" }), false);
+  });
+});
+
+describe("shouldSkipNotification", () => {
   it("skips aborted stopReason", () => {
     assert.equal(shouldSkipNotification({ stopReason: "aborted" }, false), true);
+  });
+
+  it("skips non-retryable error", () => {
+    assert.equal(shouldSkipNotification({ stopReason: "error", errorMessage: "unknown error" }, false), true);
+  });
+
+  it("does NOT skip retry-able error (timeout — triggers 10s delay)", () => {
+    assert.equal(shouldSkipNotification({ stopReason: "error", errorMessage: "request timed out" }, false), false);
   });
 
   it("allows stop stopReason", () => {
@@ -300,43 +412,42 @@ describe("NotificationStateMachine", () => {
     assert.equal(sm.notifications.length, 0);
   });
 
-  it("retry flow: end → start(cancel) → end → notified", () => {
+  it("retry flow: retry-able error → not skipped → notified", () => {
     const sm = new NotificationStateMachine();
 
-    // First agent run fails (network error)
-    sm.handle({ type: "agent_end", messages: [{ role: "assistant", stopReason: "error", errorMessage: "timeout" }] });
-    assert.equal(sm.state, "idle"); // skipped by stopReason
-
-    // Retry starts
-    sm.handle({ type: "agent_start" });
-    assert.equal(sm.state, "idle");
-
-    // Retry succeeds
-    sm.handle({ type: "agent_end", messages: [{ role: "assistant", stopReason: "stop" }] });
-    assert.equal(sm.state, "waiting");
+    // Retry-able error (timeout) → should NOT be skipped
+    sm.handle({ type: "agent_end", messages: [{ role: "assistant", stopReason: "error", errorMessage: "timed out" }] });
+    assert.equal(sm.state, "waiting"); // not skipped, waiting with 10s delay
 
     sm.fireTimer();
     assert.equal(sm.state, "notified");
     assert.equal(sm.notifications.length, 1);
   });
 
+  it("non-retryable error → skipped", () => {
+    const sm = new NotificationStateMachine();
+
+    sm.handle({ type: "agent_end", messages: [{ role: "assistant", stopReason: "error", errorMessage: "unknown bug" }] });
+    assert.equal(sm.state, "idle"); // skipped
+
+    sm.fireTimer();
+    assert.equal(sm.state, "idle");
+    assert.equal(sm.notifications.length, 0);
+  });
+
   it("compaction suppresses notification during processing", () => {
     const sm = new NotificationStateMachine();
 
-    // Initial run completes
     sm.handle({ type: "agent_end", messages: [{ role: "assistant", stopReason: "stop" }] });
     assert.equal(sm.state, "waiting");
 
-    // Compaction starts → blocks notification
     sm.handle({ type: "compact_start" });
     assert.equal(sm.isCompacting, true);
 
-    // Timer fires during compaction → suppressed, state stays waiting
     sm.fireTimer();
-    assert.equal(sm.state, "waiting");
+    assert.equal(sm.state, "waiting"); // suppressed
     assert.equal(sm.notifications.length, 0);
 
-    // Compaction ends → agent.continue() → new agent_end → new timer
     sm.handle({ type: "compact_end" });
     assert.equal(sm.isCompacting, false);
     sm.handle({ type: "agent_end", messages: [{ role: "assistant", stopReason: "stop" }] });
@@ -364,7 +475,6 @@ describe("NotificationStateMachine", () => {
     sm.handle({ type: "agent_end", messages: [{ role: "assistant", stopReason: "stop" }] });
     sm.handle({ type: "agent_start" }); // cancel
     sm.handle({ type: "agent_end", messages: [{ role: "assistant", stopReason: "stop" }] });
-    // No cancel → waiting
     assert.equal(sm.state, "waiting");
 
     sm.fireTimer();

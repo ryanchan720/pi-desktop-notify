@@ -1,11 +1,31 @@
 {
   "name": "pi-desktop-notify",
   "version": "1.0.0",
+  "type": "module",
   "description": "Desktop notification extension for pi coding agent — WPF popup when pi finishes output",
-  "keywords": ["pi-package", "pi-extension", "notification"],
-  "author": "",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "notification"
+  ],
+  "author": "ryanchan720",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ryanchan720/pi-desktop-notify.git"
+  },
   "pi": {
-    "extensions": ["./extensions"]
+    "extensions": [
+      "./extensions"
+    ]
+  },
+  "files": [
+    "extensions/desktop-notify.ts",
+    "extensions/host.ps1",
+    "README.md",
+    "package.json"
+  ],
+  "dependencies": {
+    "koffi": "^3.0.2"
   }
 }
