@@ -1,6 +1,6 @@
 # pi-win-notify
 
-[pi](https://pi.dev) 桌面通知工具 — 快速焦点感知、回复预览、耗时显示、勿扰、多语言。pi 完成时右下角弹出暗色窗口，切走也不错过。终端在前台时自动跳过，一键静音，再点切回。
+[pi](https://pi.dev) 桌面通知工具 — 快速聚焦、回复预览、耗时显示、勿扰、多语言。pi 完成时右下角弹出暗色窗口，切走也不错过。终端在前台时自动跳过，一键静音，再点切回。
 
 > For English, see [README.md](./README.md)
 
@@ -31,7 +31,7 @@ pi install git:https://github.com/ryanchan720/pi-desktop-notify.git
 
 ## 特性
 
-- ⚡ **快速焦点感知** — 终端在前台自动跳过。**Alt+]** 一键切回。首次弹窗 ~3s，后续 <0.5s
+- ⚡ **快速聚焦** — 点击按钮或 **Alt+]** 一键切回终端。**Alt+[** 关闭弹窗
 - 👁 **回复预览** — 弹窗直接显示 AI 回复前 50 字，或固定完成文本
 - ⏱ **耗时显示** — 显示任务耗时
 - 🔕 **勿扰** — 3 分钟 / 30 分钟 / 1 小时 / 关闭。持久化，重启不丢。多实例自动同步
@@ -41,7 +41,6 @@ pi install git:https://github.com/ryanchan720/pi-desktop-notify.git
 - 🤖 自动抑制 LLM 重试和上下文压缩期间的弹窗
 - 📝 通知标题 = 用户 prompt 前 25 字
 - 📚 多 pi 窗口堆叠
-- 🌍 跨平台：Windows / macOS / Linux
 
 ## 测试
 

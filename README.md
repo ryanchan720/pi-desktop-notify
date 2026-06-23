@@ -31,8 +31,8 @@ pi install git:https://github.com/ryanchan720/pi-desktop-notify.git
 
 ## Features
 
-- ⚡ **Fast focus** — detects when terminal is focused, skips notification. **Alt+]** to switch back instantly. First popup ~3s, subsequent <0.5s
-- 👁 **Response preview** — shows the AI's reply (first 50 chars) right in the popup, or fixed completion text
+- ⚡ **Fast focus** — click or **Alt+]** to switch back to terminal. **Alt+[** to dismiss
+- 👁 **Response preview** — shows AI reply (first 50 chars) right in the popup, or fixed text
 - ⏱ **Elapsed time** — displays how long the task took
 - 🔕 **Mute** — 3 min / 30 min / 1 hour / off. Persists to disk, survives restarts. Multi-instance auto-sync
 - 🌐 **Multi-language** — `zh` / `en` / `ja` / `ko`
@@ -41,7 +41,6 @@ pi install git:https://github.com/ryanchan720/pi-desktop-notify.git
 - 🤖 Auto-suppress during LLM retries & context compaction
 - 📝 Title = first 25 chars of user prompt
 - 📚 Multi-pi window stacking
-- 🌍 Cross-platform: Windows / macOS / Linux
 
 ## Test
 
