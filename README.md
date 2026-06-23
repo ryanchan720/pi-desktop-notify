@@ -1,58 +1,59 @@
 # pi-win-notify
 
-WPF desktop notification for [pi coding agent](https://pi.dev). Pops up a rich popup when pi finishes output — so you don't miss it after switching to another app.
+WPF 桌面通知扩展 for [pi coding agent](https://pi.dev)。pi 完成输出时右下角弹出暗色通知窗口，切到其他程序时不会错过。
 
-## Install
+*WPF desktop notification for [pi coding agent](https://pi.dev). Pops up a rich dark popup when pi finishes output — never miss a completed task.*
+
+## 安装 / Install
 
 ```bash
 pi install pi-win-notify
 ```
 
-Or from GitHub:
+或从 GitHub / *or from GitHub*：
 
 ```bash
 pi install git:https://github.com/ryanchan720/pi-desktop-notify.git
 ```
 
-## Architecture
+## 架构 / Architecture
 
-- **`desktop-notify.ts`** — pi extension (commands, events, foreground detection via koffi)
-- **`host.ps1`** — Persistent PowerShell daemon: loads WPF + compiles C# once, waits for JSON on stdin
+- **`desktop-notify.ts`** — pi 扩展入口（命令、事件、前台检测 via koffi）
+- **`host.ps1`** — 常驻 PowerShell 守护进程：一次加载 WPF + 编译 C#，后续 stdin 一行 JSON 即弹窗
 
-## Usage
+## 使用 / Usage
 
-| Command | Description |
+| 命令 / Command | 说明 / Description |
 |---------|-------------|
-| `/notify` | Toggle on/off |
-| `/notify on` / `off` | Force state |
-| `/notify timeout 15` | Auto-dismiss seconds (5~60, default 15) |
-| `/notify opacity 1.0` | Window opacity (0.3~1.0, default 1.0) |
-| `/notify message fixed` | Fixed completion text |
-| `/notify message response` | AI reply first 50 chars (default) |
-| `/notify lang en` | Language: `zh` `en` `ja` `ko` (default `en`) |
-| `/notify status` | Show daemon health + current config |
+| `/notify` | 开关切换 / Toggle on/off |
+| `/notify on` / `off` | 强制开关 / Force state |
+| `/notify timeout 15` | 自动消失秒数 (5~60, 默认 15) / Auto-dismiss seconds |
+| `/notify opacity 1.0` | 窗口不透明度 (0.3~1.0) / Window opacity |
+| `/notify message fixed` | 固定完成文本 / Fixed completion text |
+| `/notify message response` | AI 回复前 50 字 (默认) / AI reply first 50 chars |
+| `/notify lang en` | 语言：`zh` `en` `ja` `ko` / Language |
+| `/notify status` | 守护进程状态 + 当前配置 / Daemon health + config |
 
-## Features
+## 特性 / Features
 
-- WPF dark-themed popup, bottom-right corner
-- Follows cursor to active monitor
-- Top-most, doesn't steal focus, configurable opacity, auto-dismiss
-- ⏱ Elapsed time display
-- 🔕 Mute button on notification: 3 min / 30 min / 1 hour / off
-  - Write-through to `notify.json`, survives restarts
-  - Multi-instance aware: every `agent_end` checks if mute has expired
-- **Alt+[** = Dismiss, **Alt+]** = Switch back & focus terminal
-- Auto-suppressed during LLM retries & context compaction
-- Skipped when terminal window is already focused
-- Title = first 25 characters of your prompt
-- Multi-pi stacking (offsets upward)
-- Persistent PS host: first notification ~3s, subsequent <0.5s
-- Cross-platform: Windows (WPF), macOS (Notification Center), Linux (notify-send)
+- 🪟 WPF 暗色主题弹窗，右下角，跟光标走 / *Dark-themed popup, bottom-right, cursor-aware monitor*
+- 🔝 置顶、不抢焦点、可配不透明度、自动消失 / *Top-most, no focus steal, configurable opacity, auto-dismiss*
+- ⏱ 显示耗时 / *Elapsed time display*
+- 🔕 勿扰按钮：3 分钟 / 30 分钟 / 1 小时 / 关闭 / *Mute button: 3min / 30min / 1h / off*
+  - 写入 `notify.json`，重启不丢 / *Persists to disk, survives restarts*
+  - 多实例自动同步：每次 `agent_end` 检查是否过期 / *Multi-instance sync via file check on agent_end*
+- ⌨ **Alt+[** 关闭, **Alt+]** 切回终端聚焦 / *Alt+[ dismiss, Alt+] switch back*
+- 🤖 自动抑制 LLM 重试和上下文压缩期间的弹窗 / *Auto-suppress during retries & compaction*
+- 🏠 终端在前台时自动跳过 / *Skip when terminal is focused*
+- 📝 通知标题 = 用户 prompt 前 25 字 / *Title = first 25 chars of prompt*
+- 📚 多 pi 窗口堆叠 / *Multi-pi window stacking*
+- ⚡ 常驻 PS 守护进程：首次弹窗 ~3s，后续 <0.5s / *Persistent daemon: first popup ~3s, subsequent <0.5s*
+- 🌍 跨平台：Windows (WPF) / macOS (Notification Center) / Linux (notify-send)
 
-## Test
+## 测试 / Test
 
 ```bash
 node --experimental-strip-types tests/tests.ts
 ```
 
-42 unit tests covering content extraction, retry detection, and state machine.
+42 个单元测试，覆盖内容提取、重试检测和状态机 / *42 unit tests covering extraction, retry detection, and state machine.*
