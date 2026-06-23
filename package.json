@@ -25,6 +25,7 @@
     "extensions/desktop-notify.ts",
     "extensions/host.ps1",
     "README.md",
+    "README.zh.md",
     "package.json"
   ],
   "dependencies": {
