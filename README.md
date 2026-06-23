@@ -1,6 +1,6 @@
 # pi-win-notify
 
-Desktop notification for [pi coding agent](https://pi.dev). Pops up a rich popup when pi finishes output — never miss a completed task.
+A Windows notification tool for [pi](https://pi.dev) — fast focus, response preview, elapsed time, mute, multi-language. Pops up a dark popup when pi finishes, so you never miss a completed task. Skips automatically when the terminal is focused. Mute with one click, click again to switch back.
 
 > 中文说明见 [README.zh.md](./README.zh.md)
 
@@ -31,18 +31,16 @@ pi install git:https://github.com/ryanchan720/pi-desktop-notify.git
 
 ## Features
 
+- ⚡ **Fast focus** — detects when terminal is focused, skips notification. **Alt+]** to switch back instantly. First popup ~3s, subsequent <0.5s
+- 👁 **Response preview** — shows the AI's reply (first 50 chars) right in the popup, or fixed completion text
+- ⏱ **Elapsed time** — displays how long the task took
+- 🔕 **Mute** — 3 min / 30 min / 1 hour / off. Persists to disk, survives restarts. Multi-instance auto-sync
+- 🌐 **Multi-language** — `zh` / `en` / `ja` / `ko`
 - 🪟 Dark rounded popup, bottom-right, follows cursor across monitors
-- 🔝 Top-most, doesn't steal focus, configurable opacity, auto-dismiss
-- ⏱ Elapsed time display
-- 🔕 Mute button: 3 min / 30 min / 1 hour / off
-  - Persists to disk, survives restarts
-  - Multi-instance auto-sync via file check on each `agent_end`
-- ⌨ **Alt+[** dismiss, **Alt+]** switch back to terminal
+- 🔝 Top-most, never steals focus, configurable opacity, auto-dismiss
 - 🤖 Auto-suppress during LLM retries & context compaction
-- 🏠 Skip when terminal is already focused
 - 📝 Title = first 25 chars of user prompt
 - 📚 Multi-pi window stacking
-- ⚡ Persistent daemon: first popup ~3s, subsequent <0.5s
 - 🌍 Cross-platform: Windows / macOS / Linux
 
 ## Test

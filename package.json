@@ -1,8 +1,8 @@
 {
   "name": "pi-win-notify",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
-  "description": "WPF desktop notification for pi coding agent — rich popup with mute, multi-monitor, i18n",
+  "description": "A Windows notification tool for pi — fast focus, response preview, elapsed time, mute, multi-language",
   "keywords": [
     "pi-package",
     "pi-extension",
