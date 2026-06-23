@@ -66,16 +66,19 @@ let notifyTimer: ReturnType<typeof setTimeout> | null = null;
 let taskStartTime = 0;
 let psHost: ChildProcess | null = null;
 let psHostReady = false;
+let psHostCrashCount = 0;
+let psHostLastError = "";
+let piApi: ExtensionAPI | null = null;
 
 // ── 可配置项 ────────────────────────────────────────────────────────────────
 const CONFIG_PATH = join(getAgentDir(), "notify.json");
-type Config = { timeout: number; opacity: number; messageMode: "fixed" | "response"; lang: "zh" | "en" | "ja" | "ko" };
+type Config = { timeout: number; opacity: number; messageMode: "fixed" | "response"; lang: "zh" | "en" | "ja" | "ko"; muteUntil?: number };
 
 function loadConfig(): Config {
   try {
     if (existsSync(CONFIG_PATH)) {
       const saved = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
-      return { timeout: saved.timeout ?? 15, opacity: saved.opacity ?? 1.0, messageMode: saved.messageMode ?? "response", lang: saved.lang ?? "en" };
+      return { timeout: saved.timeout ?? 15, opacity: saved.opacity ?? 1.0, messageMode: saved.messageMode ?? "response", lang: saved.lang ?? "en", muteUntil: saved.muteUntil };
     }
   } catch { /* */ }
   return { timeout: 15, opacity: 1.0, messageMode: "response", lang: "en" };
@@ -88,14 +91,19 @@ function saveConfig(c: Config): void {
   } catch { /* */ }
 }
 
+function saveMuteUntil(ts: number | undefined): void {
+  config.muteUntil = ts;
+  saveConfig(config);
+}
+
 const config = loadConfig();
 
 // ── i18n ────────────────────────────────────────────────────────────────────
 const i18n: Record<string, Record<string, string>> = {
-  zh: { dismissBtn: " 知 道 了 ", continueBtn: " 继 续 ", completion: "任务完成", switchBack: "可以切回来了", enabled: "通知已开启 🔔", disabled: "通知已关闭 🔕", configTitle: "通知配置", timeoutLabel: "超时", opacityLabel: "不透明度", modeLabel: "模式", langLabel: "语言", statusLabel: "状态", on: "开", off: "关", },
-  en: { dismissBtn: " Dismiss ", continueBtn: "Continue", completion: "Task complete", switchBack: "Switch back", enabled: "Notify ON 🔔", disabled: "Notify OFF 🔕", configTitle: "Notify Config", timeoutLabel: "Timeout", opacityLabel: "Opacity", modeLabel: "Mode", langLabel: "Language", statusLabel: "Status", on: "ON", off: "OFF", },
-  ja: { dismissBtn: " 閉じる ", continueBtn: " 続 行 ", completion: "完了", switchBack: "戻れます", enabled: "通知ON 🔔", disabled: "通知OFF 🔕", configTitle: "通知設定", timeoutLabel: "タイムアウト", opacityLabel: "不透明度", modeLabel: "モード", langLabel: "言語", statusLabel: "状態", on: "ON", off: "OFF", },
-  ko: { dismissBtn: "  닫 기  ", continueBtn: " 계 속 ", completion: "완료", switchBack: "돌아가기", enabled: "알림 ON 🔔", disabled: "알림 OFF 🔕", configTitle: "알림 설정", timeoutLabel: "시간제한", opacityLabel: "불투명도", modeLabel: "모드", langLabel: "언어", statusLabel: "상태", on: "ON", off: "OFF", },
+  zh: { dismissBtn: " 知 道 了 ", continueBtn: " 继 续 ", completion: "任务完成", switchBack: "可以切回来了", enabled: "通知已开启 🔔", disabled: "通知已关闭 🔕", configTitle: "通知配置", timeoutLabel: "超时", opacityLabel: "不透明度", modeLabel: "模式", langLabel: "语言", statusLabel: "状态", on: "开", off: "关", mute3: "3 分钟", mute30: "30 分钟", mute60: "1 小时", muteOff: "关闭勿扰" },
+  en: { dismissBtn: " Dismiss ", continueBtn: "Continue", completion: "Task complete", switchBack: "Switch back", enabled: "Notify ON 🔔", disabled: "Notify OFF 🔕", configTitle: "Notify Config", timeoutLabel: "Timeout", opacityLabel: "Opacity", modeLabel: "Mode", langLabel: "Language", statusLabel: "Status", on: "ON", off: "OFF", mute3: "3 min", mute30: "30 min", mute60: "1 hour", muteOff: "Turn off" },
+  ja: { dismissBtn: " 閉じる ", continueBtn: " 続 行 ", completion: "完了", switchBack: "戻れます", enabled: "通知ON 🔔", disabled: "通知OFF 🔕", configTitle: "通知設定", timeoutLabel: "タイムアウト", opacityLabel: "不透明度", modeLabel: "モード", langLabel: "言語", statusLabel: "状態", on: "ON", off: "OFF", mute3: "3 分", mute30: "30 分", mute60: "1 時間", muteOff: "オフ" },
+  ko: { dismissBtn: "  닫 기  ", continueBtn: " 계 속 ", completion: "완료", switchBack: "돌아가기", enabled: "알림 ON 🔔", disabled: "알림 OFF 🔕", configTitle: "알림 설정", timeoutLabel: "시간제한", opacityLabel: "불투명도", modeLabel: "모드", langLabel: "언어", statusLabel: "상태", on: "ON", off: "OFF", mute3: "3 분", mute30: "30 분", mute60: "1 시간", muteOff: "끄기" },
 };
 function t(key: string): string { return i18n[config.lang]?.[key] ?? i18n.zh[key] ?? key; }
 function completionMsg(): string { return `${t("completion")}，${t("switchBack")} 🎉`; }
@@ -196,11 +204,24 @@ function spawnHost(): void {
       if (!trimmed) continue;
       if (trimmed === "READY") {
         psHostReady = true;
+        psHostCrashCount = 0;
+        psHostLastError = "";
         log("PS host ready");
       } else if (trimmed === "OK") {
         log("PS host: notification dismissed");
       } else if (trimmed.startsWith("ERROR:")) {
         log(`PS host error: ${trimmed}`);
+      } else if (trimmed.startsWith("MUTE:")) {
+        const mins = parseInt(trimmed.slice(5));
+        if (mins > 0) {
+          enabled = false;
+          saveMuteUntil(Date.now() + mins * 60000);
+          log(`mute: notifications off for ${mins}m`);
+        } else {
+          enabled = true;
+          saveMuteUntil(undefined);
+          log("mute off");
+        }
       }
     }
   });
@@ -211,6 +232,13 @@ function spawnHost(): void {
 
   child.on("close", (code) => {
     log(`PS host exited (code=${code})`);
+    if (code !== 0 && code !== null) {
+      psHostCrashCount++;
+      psHostLastError = `exit code ${code}`;
+      if (piApi) {
+        piApi.ui.notify(`桌面通知服务异常 (${psHostLastError})，下次弹窗时自动恢复`, "warning");
+      }
+    }
     psHost = null;
     psHostReady = false;
   });
@@ -249,6 +277,10 @@ function notifyWindows(title: string, body: string, hwnd: string, winTitle: stri
     winTitle,
     dismissLabel: t("dismissBtn"),
     continueLabel: t("continueBtn"),
+    mute3Label: t("mute3"),
+    mute30Label: t("mute30"),
+    mute60Label: t("mute60"),
+    muteOffLabel: t("muteOff"),
     timeoutSec: config.timeout,
     opacityVal: config.opacity.toFixed(2),
     elapsedLabel,
@@ -369,11 +401,19 @@ function willRetry(msg: { stopReason?: string; errorMessage?: string }): boolean
 
 export default function (pi: ExtensionAPI) {
   log("extension loaded");
+  piApi = pi;
   initWin32();
   uniqueWindowId = `pi@${process.pid.toString(36)}`;
   process.stdout.write(`\x1b]0;${uniqueWindowId}\x07`);
   log(`windowId = ${uniqueWindowId}`);
   cacheTerminalHwnd();
+
+  // 恢复上次未过期的勿扰（仅设置状态，到期检查由 agent_end 处理）
+  if (config.muteUntil && config.muteUntil > Date.now()) {
+    enabled = false;
+    log(`mute restored: ${Math.round((config.muteUntil - Date.now()) / 60000)}m remaining`);
+  }
+
   spawnHost();
 
   // ── /notify 命令 ──────────────────────────────────────────────────────────
@@ -384,7 +424,7 @@ export default function (pi: ExtensionAPI) {
       const wantsNextLevel = prefix.endsWith(" ");
 
       if (parts.length === 0 || (parts.length === 1 && !wantsNextLevel)) {
-        const subs = ["on", "off", "timeout", "opacity", "message", "lang", "config"];
+        const subs = ["on", "off", "timeout", "opacity", "message", "lang", "status"];
         const filtered = subs.filter((s) => s.startsWith(parts[0] ?? ""));
         return filtered.length > 0 ? filtered.map((s) => ({ value: s, label: s })) : null;
       }
@@ -447,15 +487,19 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      if (sub === "config") {
+      // /notify status
+      if (sub === "status") {
+        const hostStatus = psHostReady ? "🟢" : psHost ? "🟡" : "🔴";
+        const crashInfo = psHostCrashCount > 0 ? ` 重启${psHostCrashCount}次` : "";
+        const lastErr = psHostLastError ? ` (${psHostLastError})` : "";
         ctx.ui.notify(
-          `${t("timeoutLabel")}=${config.timeout}s ${t("opacityLabel")}=${config.opacity} ${t("modeLabel")}=${config.messageMode} ${t("langLabel")}=${config.lang} ${t("statusLabel")}=${enabled ? t("on") : t("off")}`,
-          "info",
+          `状态${hostStatus}${crashInfo}${lastErr}  |  ${t("timeoutLabel")}=${config.timeout}s ${t("opacityLabel")}=${config.opacity} ${t("modeLabel")}=${config.messageMode} ${t("langLabel")}=${config.lang} ${enabled ? t("on") : t("off")}`,
+          psHostReady ? "info" : "warning",
         );
         return;
       }
 
-      ctx.ui.notify(`Unknown: ${raw} — try /notify config`, "warning");
+      ctx.ui.notify(`Unknown: ${raw} — try /notify status`, "warning");
     },
   });
 
@@ -478,6 +522,14 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("agent_end", (_event, ctx) => {
+    // 实时检查勿扰过期（每次 agent_end 读文件，跨实例自动同步）
+    if (config.muteUntil && Date.now() > config.muteUntil) {
+      enabled = true;
+      saveMuteUntil(undefined);
+      log("mute expired (checked on agent_end)");
+      if (piApi) piApi.ui.notify("通知已恢复 🔔", "info");
+    }
+
     log(`agent_end: enabled=${enabled} compacting=${isCompacting}`);
     if (!enabled || isCompacting) return;
 

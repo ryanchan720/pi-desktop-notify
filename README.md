@@ -8,7 +8,7 @@ Desktop notification for [pi coding agent](https://pi.dev). Pops up a WPF notifi
 pi install pi-desktop-notify
 ```
 
-Or install from GitHub:
+Or from GitHub:
 
 ```bash
 pi install git:https://github.com/ryanchan720/pi-desktop-notify.git
@@ -16,9 +16,8 @@ pi install git:https://github.com/ryanchan720/pi-desktop-notify.git
 
 ## Architecture
 
-- **`desktop-notify.ts`** — pi extension entry point (commands, events, foreground detection via koffi)
-- **`host.ps1`** — Persistent PowerShell daemon: loads WPF + compiles C# once, then waits for JSON on stdin to show notifications
-- Uses **koffi** for zero-overhead Win32 API calls (no temp files, no wscript)
+- **`desktop-notify.ts`** — pi extension (commands, events, foreground detection via koffi)
+- **`host.ps1`** — Persistent PowerShell daemon: loads WPF + compiles C# once, waits for JSON on stdin
 
 ## Usage
 
@@ -31,24 +30,29 @@ pi install git:https://github.com/ryanchan720/pi-desktop-notify.git
 | `/notify message fixed` | Fixed completion text |
 | `/notify message response` | AI reply first 50 chars (default) |
 | `/notify lang en` | Language: `zh` `en` `ja` `ko` (default `en`) |
-| `/notify config` | Show current settings |
+| `/notify status` | Show daemon health + current config |
 
 ## Features
 
 - WPF dark-themed popup, bottom-right corner
+- Follows cursor to active monitor
 - Top-most, doesn't steal focus, configurable opacity, auto-dismiss
-- ⏱ Elapsed time display in notification
+- ⏱ Elapsed time display
+- 🔕 Mute button on notification: 3 min / 30 min / 1 hour / off
+  - Write-through to `notify.json`, survives restarts
+  - Multi-instance aware: every `agent_end` checks if mute has expired
 - **Alt+[** = Dismiss, **Alt+]** = Switch back & focus terminal
 - Auto-suppressed during LLM retries & context compaction
 - Skipped when terminal window is already focused
 - Title = first 25 characters of your prompt
 - Multi-pi stacking (offsets upward)
-- Config persisted to `~/.pi/agent/notify.json`
-- Cross-platform: Windows (WPF), macOS (Notification Center), Linux (notify-send)
 - Persistent PS host: first notification ~3s, subsequent <0.5s
+- Cross-platform: Windows (WPF), macOS (Notification Center), Linux (notify-send)
 
 ## Test
 
 ```bash
 node --experimental-strip-types tests/tests.ts
 ```
+
+42 unit tests covering content extraction, retry detection, and state machine.

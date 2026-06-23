@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = [Text.Encoding]::UTF8
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $log = "$env:TEMP\pi-notify-debug.log"
@@ -6,7 +6,7 @@ function l($m) { try { "$m" | Out-File -Append -Encoding utf8 $log } catch {} }
 
 l '[host-start]'
 
-Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,System.Windows.Forms
 l '[host-assemblies-ok]'
 
 # PF: 切回终端
@@ -98,6 +98,17 @@ function Build-Xaml($opacity, $dismissLabel, $continueLabel) {
         </Grid.ColumnDefinitions>
         <TextBlock x:Name="Timer" Foreground="#666" FontSize="11" VerticalAlignment="Bottom"/>
         <StackPanel Grid.Column="1" Orientation="Horizontal">
+        <Button x:Name="MuteBtn" Width="32" Height="30" Margin="0,0,6,0" Cursor="Hand"
+          ToolTip="勿扰">
+          <Button.Template>
+            <ControlTemplate TargetType="Button">
+              <Border CornerRadius="4" Background="#3A3A3A">
+                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                  Text="🔕" FontSize="13" Foreground="#AAA"/>
+              </Border>
+            </ControlTemplate>
+          </Button.Template>
+        </Button>
         <Button x:Name="DismissBtn" Content="$dismissLabel" Width="78" Height="30" Margin="0,0,10,0" Cursor="Hand">
           <Button.Template>
             <ControlTemplate TargetType="Button">
@@ -189,7 +200,48 @@ function Show-Notify($data) {
   $win.FindName('DismissBtn').Add_Click({ $win.Close() })
   $win.FindName('FocusBtn').Add_Click({ $win.Close(); Focus-PiTerminal $hwndNum $winTitle })
 
-  $wa = [System.Windows.SystemParameters]::WorkArea
+  # 勿扰菜单
+  $popup = New-Object System.Windows.Controls.Primitives.Popup
+  $popup.PlacementTarget = $win.FindName('MuteBtn')
+  $popup.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+  $popup.StaysOpen = $false
+  $popup.AllowsTransparency = $true
+
+  $panel = New-Object System.Windows.Controls.StackPanel
+  $panel.Background = "#333"
+  $panel.MinWidth = 100
+
+  $opts = @(
+    @{Header=$data.mute3Label; Val=3},
+    @{Header=$data.mute30Label; Val=30},
+    @{Header=$data.mute60Label; Val=60},
+    @{Header=$data.muteOffLabel; Val=0}
+  )
+  foreach ($o in $opts) {
+    $btn = New-Object System.Windows.Controls.Button
+    $btn.Content = $o.Header
+    $btn.Background = "Transparent"
+    $btn.Foreground = "#CCC"
+    $btn.BorderThickness = 0
+    $btn.FontSize = 12
+    $btn.HorizontalContentAlignment = "Left"
+    $btn.Padding = "10,6"
+    $btn.Cursor = "Hand"
+    $btn.Tag = $o.Val
+    $btn.Add_Click({
+      $popup.IsOpen = $false
+      $win.Close()
+      Write-Output ("MUTE:" + $this.Tag)
+    }.GetNewClosure())
+    $btn.Add_MouseEnter({ $this.Background = "#444" })
+    $btn.Add_MouseLeave({ $this.Background = "Transparent" })
+    $panel.Children.Add($btn) | Out-Null
+  }
+  $popup.Child = $panel
+  $win.FindName('MuteBtn').Add_Click({ $popup.IsOpen = $true })
+
+  $cursor = [System.Windows.Forms.Cursor]::Position
+  $wa = [System.Windows.Forms.Screen]::FromPoint($cursor).WorkingArea
   $count = inc-stack
   $offset = ($count - 1) * 128
   $win.Left = $wa.Right - $win.Width - 20
