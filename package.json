@@ -1,5 +1,5 @@
 {
-  "name": "@ryanchan720/pi-win-notify",
+  "name": "pi-win-notify",
   "version": "1.0.0",
   "type": "module",
   "description": "WPF desktop notification for pi coding agent — rich popup with mute, multi-monitor, i18n",
@@ -12,9 +12,6 @@
   ],
   "author": "ryanchan720",
   "license": "MIT",
-  "publishConfig": {
-    "access": "public"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/ryanchan720/pi-desktop-notify.git"
