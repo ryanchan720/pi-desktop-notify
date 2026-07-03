@@ -157,10 +157,14 @@ function Focus-PiTerminal($hwndNum, $winTitle) {
 }
 
 $stackFile = "$env:TEMP\pi-notify-stack.txt"
+# 每次宿主启动重置计数器，避免崩溃残留导致窗口位置漂移
+if (Test-Path $stackFile) { Remove-Item $stackFile -Force }
 
 function inc-stack {
   $count = 0
   if (Test-Path $stackFile) { try { $count = [int](Get-Content $stackFile -Raw).Trim() } catch {} }
+  # 保护：超过 10 层说明 dec-stack 泄露，重置
+  if ($count -gt 10) { $count = 0; l '[stack-reset] overflow' }
   $count++
   $count | Out-File -Encoding ascii $stackFile
   return $count
@@ -241,12 +245,15 @@ function Show-Notify($data) {
   $win.FindName('MuteBtn').Add_Click({ $popup.IsOpen = $true })
 
   $cursor = [System.Windows.Forms.Cursor]::Position
-  $waW = [System.Windows.SystemParameters]::WorkArea.Width
-  $waH = [System.Windows.SystemParameters]::WorkArea.Height
+  $screen = [System.Windows.Forms.Screen]::FromPoint($cursor)
+  $waL = $screen.WorkingArea.Left
+  $waT = $screen.WorkingArea.Top
+  $waW = $screen.WorkingArea.Width
+  $waH = $screen.WorkingArea.Height
   $count = inc-stack
   $offset = ($count - 1) * 128
-  $win.Left = $waW - $win.Width - 20
-  $win.Top = $waH - $win.Height - 10 - $offset
+  $win.Left = $waL + $waW - $win.Width - 20
+  $win.Top = $waT + $waH - $win.Height - 10 - $offset
   l "[ps-stack] count=$count offset=$offset"
 
   $timer = New-Object System.Windows.Threading.DispatcherTimer
