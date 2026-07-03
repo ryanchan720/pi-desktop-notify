@@ -7,7 +7,7 @@ A Windows notification tool for [pi](https://pi.dev) — fast focus, response pr
 ## Install
 
 ```bash
-pi install pi-win-notify
+pi install npm:pi-win-notify
 ```
 
 Or from GitHub:

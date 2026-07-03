@@ -7,7 +7,7 @@
 ## 安装
 
 ```bash
-pi install pi-win-notify
+pi install npm:pi-win-notify
 ```
 
 或从 GitHub：
