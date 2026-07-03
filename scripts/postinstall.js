@@ -11,7 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkgDir = dirname(__dirname); // pi-win-notify root
 
 // Source: where npm hoisted the native module (top-level node_modules)
-const src = join(pkgDir, "..", "..", "@koromix", "koffi-win32-x64");
+const src = join(pkgDir, "..", "..", "node_modules", "@koromix", "koffi-win32-x64");
 // Dest: where koffi expects it (inside pi-win-notify/node_modules)
 const destDir = join(pkgDir, "node_modules", "@koromix");
 const dest = join(destDir, "koffi-win32-x64");
