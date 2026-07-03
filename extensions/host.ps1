@@ -6,7 +6,7 @@ function l($m) { try { "$m" | Out-File -Append -Encoding utf8 $log } catch {} }
 
 l '[host-start]'
 
-Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,System.Windows.Forms
+Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,System.Windows.Forms,System.Drawing
 l '[host-assemblies-ok]'
 
 # PF: 切回终端
@@ -246,15 +246,23 @@ function Show-Notify($data) {
 
   $cursor = [System.Windows.Forms.Cursor]::Position
   $screen = [System.Windows.Forms.Screen]::FromPoint($cursor)
-  $waL = $screen.WorkingArea.Left
-  $waT = $screen.WorkingArea.Top
-  $waW = $screen.WorkingArea.Width
-  $waH = $screen.WorkingArea.Height
+  # WinForms WorkingArea 是物理像素；WPF Window 坐标是设备无关像素 (DIP, 1/96in)。
+  # 高分屏 (150%+/200%+) 下必须除以 DPI 缩放比。
+  # 注意：PowerShell 宿主中 SystemParameters.DpiX 返回 0，必须用 System.Drawing。
+  $gfx = [System.Drawing.Graphics]::FromHwnd([System.IntPtr]::Zero)
+  try {
+    $dpiScaleX = $gfx.DpiX / 96.0
+    $dpiScaleY = $gfx.DpiY / 96.0
+  } finally { $gfx.Dispose() }
+  $waL = $screen.WorkingArea.Left / $dpiScaleX
+  $waT = $screen.WorkingArea.Top / $dpiScaleY
+  $waW = $screen.WorkingArea.Width / $dpiScaleX
+  $waH = $screen.WorkingArea.Height / $dpiScaleY
   $count = inc-stack
   $offset = ($count - 1) * 128
   $win.Left = $waL + $waW - $win.Width - 20
   $win.Top = $waT + $waH - $win.Height - 10 - $offset
-  l "[ps-stack] count=$count offset=$offset"
+  l "[ps-stack] count=$count offset=$offset dpiScaleX=$dpiScaleX dpiScaleY=$dpiScaleY"
 
   $timer = New-Object System.Windows.Threading.DispatcherTimer
   $timer.Interval = [TimeSpan]::FromSeconds($timeout)
