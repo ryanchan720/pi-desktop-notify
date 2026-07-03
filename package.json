@@ -1,6 +1,6 @@
 {
   "name": "pi-win-notify",
-  "version": "1.0.9",
+  "version": "1.0.11",
   "type": "module",
   "description": "A Windows notification tool for pi — fast focus, response preview, elapsed time, mute, multi-language",
   "keywords": [
@@ -30,5 +30,9 @@
   ],
   "dependencies": {
     "koffi": "^3.0.2"
+  },
+  "optionalDependencies": {
+    "@koromix/koffi-win32-x64": "3.0.2",
+    "@koromix/koffi-win32-ia32": "3.0.2"
   }
 }
