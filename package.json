@@ -1,6 +1,6 @@
 {
   "name": "pi-win-notify",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "type": "module",
   "description": "A Windows notification tool for pi — fast focus, response preview, elapsed time, mute, multi-language",
   "keywords": [
@@ -24,10 +24,14 @@
   "files": [
     "extensions/desktop-notify.ts",
     "extensions/host.ps1",
+    "scripts/postinstall.js",
     "README.md",
     "README.zh.md",
     "package.json"
   ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
   "dependencies": {
     "koffi": "^3.0.2"
   },
